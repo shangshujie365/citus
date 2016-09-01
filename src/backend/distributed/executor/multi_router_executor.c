@@ -34,6 +34,7 @@
 #include "distributed/multi_physical_planner.h"
 #include "distributed/multi_planner.h"
 #include "distributed/multi_router_executor.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/relay_utility.h"
 #include "distributed/resource_lock.h"
 #include "executor/execdesc.h"
@@ -1244,7 +1245,6 @@ RouterTransactionCallback(XactEvent event, void *arg)
 	}
 
 	/* reset transaction state */
-	XactModificationLevel = XACT_MODIFICATION_NONE;
 	xactParticipantHash = NULL;
 	xactShardConnSetList = NIL;
 	subXactAbortAttempted = false;

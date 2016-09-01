@@ -81,6 +81,7 @@
 #include "distributed/multi_copy.h"
 #include "distributed/multi_physical_planner.h"
 #include "distributed/multi_shard_transaction.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/pg_dist_partition.h"
 #include "distributed/resource_lock.h"
 #include "distributed/shardinterval_utils.h"

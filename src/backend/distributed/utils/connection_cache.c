@@ -21,6 +21,7 @@
 #include "commands/dbcommands.h"
 #include "distributed/connection_cache.h"
 #include "distributed/metadata_cache.h"
+#include "distributed/multi_transaction.h"
 #include "mb/pg_wchar.h"
 #include "utils/builtins.h"
 #include "utils/elog.h"
@@ -28,10 +29,6 @@
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 #include "utils/palloc.h"
-
-
-/* state needed to keep track of operations used during a transaction */
-XactModificationType XactModificationLevel = XACT_MODIFICATION_NONE;
 
 /*
  * NodeConnectionHash is the connection hash itself. It begins uninitialized.

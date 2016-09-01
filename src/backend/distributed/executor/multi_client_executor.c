@@ -22,6 +22,7 @@
 #include "distributed/connection_cache.h"
 #include "distributed/multi_client_executor.h"
 #include "distributed/multi_server_executor.h"
+#include "distributed/multi_transaction.h"
 
 #include <errno.h>
 #include <unistd.h>

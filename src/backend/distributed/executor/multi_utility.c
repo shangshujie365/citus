@@ -38,6 +38,7 @@
 #include "distributed/multi_copy.h"
 #include "distributed/multi_join_order.h"
 #include "distributed/multi_shard_transaction.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/multi_utility.h" /* IWYU pragma: keep */
 #include "distributed/pg_dist_partition.h"
 #include "distributed/resource_lock.h"

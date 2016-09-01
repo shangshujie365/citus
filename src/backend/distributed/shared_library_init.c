@@ -29,6 +29,7 @@
 #include "distributed/multi_router_executor.h"
 #include "distributed/multi_router_planner.h"
 #include "distributed/multi_server_executor.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/multi_utility.h"
 #include "distributed/task_tracker.h"
 #include "distributed/worker_manager.h"
@@ -38,6 +39,8 @@
 #include "optimizer/paths.h"
 #include "utils/guc.h"
 #include "utils/guc_tables.h"
+
+extern bool LogRemoteCommands;
 
 /* marks shared object as one loadable by the postgres version compiled against */
 PG_MODULE_MAGIC;
@@ -154,6 +157,9 @@ _PG_init(void)
 
 	/* initialize router executor callbacks */
 	InstallRouterExecutorShmemHook();
+
+	/* initialize coordinated transaction management */
+	InstallTransactionManagementShmemHook();
 }
 
 
@@ -257,6 +263,16 @@ RegisterCitusConfigVariables(void)
 		false,
 		PGC_USERSET,
 		GUC_NO_SHOW_ALL,
+		NULL, NULL, NULL);
+
+	DefineCustomBoolVariable(
+		"citus.log_remote_commands",
+		gettext_noop("frak."),
+		gettext_noop("bar."),
+		&LogRemoteCommands,
+		false,
+		PGC_USERSET,
+		0,
 		NULL, NULL, NULL);
 
 	DefineCustomBoolVariable(
