@@ -26,7 +26,6 @@
 #include "commands/event_trigger.h"
 #include "distributed/citus_clauses.h"
 #include "distributed/citus_ruleutils.h"
-#include "distributed/commit_protocol.h"
 #include "distributed/connection_cache.h"
 #include "distributed/listutils.h"
 #include "distributed/master_metadata_utility.h"
@@ -37,7 +36,7 @@
 #include "distributed/multi_router_executor.h"
 #include "distributed/multi_router_planner.h"
 #include "distributed/multi_server_executor.h"
-#include "distributed/multi_shard_transaction.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/pg_dist_shard.h"
 #include "distributed/pg_dist_partition.h"
 #include "distributed/resource_lock.h"
@@ -57,9 +56,6 @@
 
 static void LockShardsForModify(List *shardIntervalList);
 static bool HasReplication(List *shardIntervalList);
-static int SendQueryToShards(Query *query, List *shardIntervalList, Oid relationId);
-static int SendQueryToPlacements(char *shardQueryString,
-								 ShardConnections *shardConnections);
 
 PG_FUNCTION_INFO_V1(master_modify_multiple_shards);
 
@@ -90,6 +86,8 @@ master_modify_multiple_shards(PG_FUNCTION_ARGS)
 	int32 affectedTupleCount = 0;
 
 	PreventTransactionChain(isTopLevel, "master_modify_multiple_shards");
+
+	BeginCoordinatedTransaction();
 
 	queryTreeNode = ParseTreeNode(queryString);
 	if (IsA(queryTreeNode, DeleteStmt))
@@ -133,12 +131,9 @@ master_modify_multiple_shards(PG_FUNCTION_ARGS)
 	prunedShardIntervalList =
 		PruneShardList(relationId, tableId, restrictClauseList, shardIntervalList);
 
-	CHECK_FOR_INTERRUPTS();
-
 	LockShardsForModify(prunedShardIntervalList);
 
-	affectedTupleCount = SendQueryToShards(modifyQuery, prunedShardIntervalList,
-										   relationId);
+	affectedTupleCount = ExecuteQueryOnShards(modifyQuery, prunedShardIntervalList, relationId);
 
 	PG_RETURN_INT32(affectedTupleCount);
 }
@@ -198,119 +193,4 @@ HasReplication(List *shardIntervalList)
 	}
 
 	return hasReplication;
-}
-
-
-/*
- * SendQueryToShards executes the given query in all placements of the given
- * shard list and returns the total affected tuple count. The execution is done
- * in a distributed transaction and the commit protocol is decided according to
- * the value of citus.multi_shard_commit_protocol parameter. SendQueryToShards
- * does not acquire locks for the shards so it is advised to acquire locks to
- * the shards when necessary before calling SendQueryToShards.
- */
-static int
-SendQueryToShards(Query *query, List *shardIntervalList, Oid relationId)
-{
-	int affectedTupleCount = 0;
-	char *relationOwner = TableOwner(relationId);
-	HTAB *shardConnectionHash = NULL;
-	ListCell *shardIntervalCell = NULL;
-
-	MemoryContext oldContext = MemoryContextSwitchTo(TopTransactionContext);
-
-	shardConnectionHash = OpenTransactionsToAllShardPlacements(shardIntervalList,
-															   relationOwner);
-
-	MemoryContextSwitchTo(oldContext);
-
-	foreach(shardIntervalCell, shardIntervalList)
-	{
-		ShardInterval *shardInterval = (ShardInterval *) lfirst(
-			shardIntervalCell);
-		Oid relationId = shardInterval->relationId;
-		uint64 shardId = shardInterval->shardId;
-		bool shardConnectionsFound = false;
-		ShardConnections *shardConnections = NULL;
-		StringInfo shardQueryString = makeStringInfo();
-		char *shardQueryStringData = NULL;
-		int shardAffectedTupleCount = -1;
-
-		shardConnections = GetShardConnections(shardConnectionHash,
-											   shardId,
-											   &shardConnectionsFound);
-		Assert(shardConnectionsFound);
-
-		deparse_shard_query(query, relationId, shardId, shardQueryString);
-		shardQueryStringData = shardQueryString->data;
-		shardAffectedTupleCount = SendQueryToPlacements(shardQueryStringData,
-														shardConnections);
-		affectedTupleCount += shardAffectedTupleCount;
-	}
-
-	/* check for cancellation one last time before returning */
-	CHECK_FOR_INTERRUPTS();
-
-	return affectedTupleCount;
-}
-
-
-/*
- * SendQueryToPlacements sends the given query string to all given placement
- * connections of a shard. CommitRemoteTransactions or AbortRemoteTransactions
- * should be called after all queries have been sent successfully.
- */
-static int
-SendQueryToPlacements(char *shardQueryString, ShardConnections *shardConnections)
-{
-	uint64 shardId = shardConnections->shardId;
-	List *connectionList = shardConnections->connectionList;
-	ListCell *connectionCell = NULL;
-	int32 shardAffectedTupleCount = -1;
-
-	Assert(connectionList != NIL);
-
-	foreach(connectionCell, connectionList)
-	{
-		TransactionConnection *transactionConnection =
-			(TransactionConnection *) lfirst(connectionCell);
-		PGconn *connection = transactionConnection->connection;
-		PGresult *result = NULL;
-		char *placementAffectedTupleString = NULL;
-		int32 placementAffectedTupleCount = -1;
-
-		CHECK_FOR_INTERRUPTS();
-
-		/* send the query */
-		result = PQexec(connection, shardQueryString);
-		if (PQresultStatus(result) != PGRES_COMMAND_OK)
-		{
-			WarnRemoteError(connection, result);
-			ereport(ERROR, (errmsg("could not send query to shard placement")));
-		}
-
-		placementAffectedTupleString = PQcmdTuples(result);
-		placementAffectedTupleCount = pg_atoi(placementAffectedTupleString,
-											  sizeof(int32), 0);
-
-		if ((shardAffectedTupleCount == -1) ||
-			(shardAffectedTupleCount == placementAffectedTupleCount))
-		{
-			shardAffectedTupleCount = placementAffectedTupleCount;
-		}
-		else
-		{
-			ereport(ERROR,
-					(errmsg("modified %d tuples, but expected to modify %d",
-							placementAffectedTupleCount, shardAffectedTupleCount),
-					 errdetail("Affected tuple counts at placements of shard "
-							   UINT64_FORMAT " are different.", shardId)));
-		}
-
-		PQclear(result);
-
-		transactionConnection->transactionState = TRANSACTION_STATE_OPEN;
-	}
-
-	return shardAffectedTupleCount;
 }
