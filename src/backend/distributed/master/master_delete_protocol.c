@@ -30,6 +30,7 @@
 #include "distributed/multi_logical_planner.h"
 #include "distributed/multi_physical_planner.h"
 #include "distributed/multi_server_executor.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/pg_dist_partition.h"
 #include "distributed/pg_dist_shard.h"
 #include "distributed/relay_utility.h"
@@ -60,8 +61,6 @@ static List * ShardsMatchingDeleteCriteria(Oid relationId, List *shardList,
 										   Node *deleteCriteria);
 static int DropShards(Oid relationId, char *schemaName, char *relationName,
 					  List *deletableShardIntervalList);
-static bool ExecuteRemoteCommand(const char *nodeName, uint32 nodePort,
-								 StringInfo queryString);
 
 
 /* exports for SQL callable functions */
@@ -192,11 +191,10 @@ master_drop_all_shards(PG_FUNCTION_ARGS)
 
 	char *schemaName = NULL;
 	char *relationName = NULL;
-	bool isTopLevel = true;
 	List *shardIntervalList = NIL;
 	int droppedShardCount = 0;
 
-	PreventTransactionChain(isTopLevel, "DROP distributed table");
+	BeginOrContinueCoordinatedTransaction();
 
 	relationName = get_rel_name(relationId);
 
@@ -255,8 +253,10 @@ master_drop_sequences(PG_FUNCTION_ARGS)
 	ArrayIterator sequenceIterator = NULL;
 	Datum sequenceText = 0;
 	bool isNull = false;
-
+	MultiConnection *connection = NULL;
 	StringInfo dropSeqCommand = makeStringInfo();
+
+	BeginOrContinueCoordinatedTransaction();
 
 	/* iterate over sequence names to build single command to DROP them all */
 	sequenceIterator = array_create_iterator(sequenceNamesArray, 0, NULL);
@@ -282,7 +282,9 @@ master_drop_sequences(PG_FUNCTION_ARGS)
 		appendStringInfo(dropSeqCommand, " %s", TextDatumGetCString(sequenceText));
 	}
 
-	dropSuccessful = ExecuteRemoteCommand(nodeName, nodePort, dropSeqCommand);
+	connection = GetNodeConnection(NEW_CONNECTION | CACHED_CONNECTION,
+								   nodeName, nodePort);
+	dropSuccessful = ExecuteCheckStatement(connection, dropSeqCommand->data);
 	if (!dropSuccessful)
 	{
 		ereport(WARNING, (errmsg("could not delete sequences from node \"%s:" INT64_FORMAT
@@ -308,6 +310,8 @@ DropShards(Oid relationId, char *schemaName, char *relationName,
 	ListCell *shardIntervalCell = NULL;
 	int droppedShardCount = 0;
 
+	BeginOrContinueCoordinatedTransaction();
+
 	foreach(shardIntervalCell, deletableShardIntervalList)
 	{
 		List *shardPlacementList = NIL;
@@ -320,6 +324,7 @@ DropShards(Oid relationId, char *schemaName, char *relationName,
 		uint64 shardId = shardInterval->shardId;
 		char *quotedShardName = NULL;
 		StringInfo shardName = makeStringInfo();
+		List *commandList = NIL;
 
 		Assert(shardInterval->relationId == relationId);
 
@@ -331,11 +336,6 @@ DropShards(Oid relationId, char *schemaName, char *relationName,
 		shardPlacementList = ShardPlacementList(shardId);
 		foreach(shardPlacementCell, shardPlacementList)
 		{
-			ShardPlacement *shardPlacement =
-				(ShardPlacement *) lfirst(shardPlacementCell);
-			char *workerName = shardPlacement->nodeName;
-			uint32 workerPort = shardPlacement->nodePort;
-			bool dropSuccessful = false;
 			StringInfo workerDropQuery = makeStringInfo();
 
 			char storageType = shardInterval->storageType;
@@ -351,20 +351,15 @@ DropShards(Oid relationId, char *schemaName, char *relationName,
 								 quotedShardName);
 			}
 
-			dropSuccessful = ExecuteRemoteCommand(workerName, workerPort,
-												  workerDropQuery);
-			if (dropSuccessful)
-			{
-				droppedPlacementList = lappend(droppedPlacementList, shardPlacement);
-			}
-			else
-			{
-				lingeringPlacementList = lappend(lingeringPlacementList, shardPlacement);
-			}
+			commandList = lappend(commandList, workerDropQuery->data);
 		}
 
-		/* make sure we don't process cancel signals */
-		HOLD_INTERRUPTS();
+		/* FIXME: It'd probably be better to execute this once outside the loop */
+		ExecuteCommandOnPlacements(shardPlacementList, commandList);
+
+		/* FIXME: fill dropped placement list */
+		/* FIXME: fill lingering placement list */
+		droppedPlacementList = shardPlacementList;
 
 		foreach(droppedPlacementCell, droppedPlacementList)
 		{
@@ -394,15 +389,6 @@ DropShards(Oid relationId, char *schemaName, char *relationName,
 		}
 
 		DeleteShardRow(shardId);
-
-		if (QueryCancelPending)
-		{
-			ereport(WARNING, (errmsg("cancel requests are ignored during shard "
-									 "deletion")));
-			QueryCancelPending = false;
-		}
-
-		RESUME_INTERRUPTS();
 	}
 
 	droppedShardCount = list_length(deletableShardIntervalList);
@@ -556,63 +542,4 @@ ShardsMatchingDeleteCriteria(Oid relationId, List *shardIntervalList,
 	}
 
 	return dropShardIntervalList;
-}
-
-
-/*
- * ExecuteRemoteCommand executes the given SQL command. This command could be an
- * Insert, Update, or Delete statement, or a utility command that returns
- * nothing. If query is successfuly executed, the function returns true.
- * Otherwise, it returns false.
- */
-static bool
-ExecuteRemoteCommand(const char *nodeName, uint32 nodePort, StringInfo queryString)
-{
-	char *nodeDatabase = get_database_name(MyDatabaseId);
-	int32 connectionId = -1;
-	QueryStatus queryStatus = CLIENT_INVALID_QUERY;
-	bool querySent = false;
-	bool queryReady = false;
-	bool queryDone = false;
-
-	connectionId = MultiClientConnect(nodeName, nodePort, nodeDatabase, NULL);
-	if (connectionId == INVALID_CONNECTION_ID)
-	{
-		return false;
-	}
-
-	querySent = MultiClientSendQuery(connectionId, queryString->data);
-	if (!querySent)
-	{
-		MultiClientDisconnect(connectionId);
-		return false;
-	}
-
-	while (!queryReady)
-	{
-		ResultStatus resultStatus = MultiClientResultStatus(connectionId);
-		if (resultStatus == CLIENT_RESULT_READY)
-		{
-			queryReady = true;
-		}
-		else if (resultStatus == CLIENT_RESULT_BUSY)
-		{
-			long sleepIntervalPerCycle = RemoteTaskCheckInterval * 1000L;
-			pg_usleep(sleepIntervalPerCycle);
-		}
-		else
-		{
-			MultiClientDisconnect(connectionId);
-			return false;
-		}
-	}
-
-	queryStatus = MultiClientQueryStatus(connectionId);
-	if (queryStatus == CLIENT_QUERY_DONE)
-	{
-		queryDone = true;
-	}
-
-	MultiClientDisconnect(connectionId);
-	return queryDone;
 }
