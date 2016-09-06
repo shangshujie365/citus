@@ -247,6 +247,56 @@ SELECT plpgsql_test_2();
 -- SELECT plpgsql_test_6(155);
 -- SELECT plpgsql_test_6(1555);
 
+-- test router executor parameterized PL/pgsql functions
+CREATE TABLE temp_table (
+	key int,
+	value int
+);
+SELECT master_create_distributed_table('temp_table','key','hash');
+SELECT master_create_worker_shards('temp_table',4,1);
+
+CREATE OR REPLACE FUNCTION no_parameter_insert() RETURNS void as $$
+BEGIN
+	INSERT INTO temp_table (key) VALUES (0);
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT no_parameter_insert();
+SELECT no_parameter_insert();
+SELECT no_parameter_insert();
+SELECT no_parameter_insert();
+SELECT no_parameter_insert();
+SELECT no_parameter_insert();
+
+CREATE OR REPLACE FUNCTION single_parameter_insert(key_arg int) RETURNS void as $$
+BEGIN
+	INSERT INTO temp_table (key) VALUES (key_arg);
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT single_parameter_insert(1);
+SELECT single_parameter_insert(2);
+SELECT single_parameter_insert(3);
+SELECT single_parameter_insert(4);
+SELECT single_parameter_insert(5);
+SELECT single_parameter_insert(6);
+
+CREATE OR REPLACE FUNCTION double_parameter_insert(key_arg int, value_arg int) RETURNS void as $$
+BEGIN
+	INSERT INTO temp_table (key, value) VALUES (key_arg, value_arg);
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT double_parameter_insert(1, 10);
+SELECT double_parameter_insert(2, 20);
+SELECT double_parameter_insert(3, 30);
+SELECT double_parameter_insert(4, 40);
+SELECT double_parameter_insert(5, 50);
+SELECT double_parameter_insert(6, 60);
+
+-- check inserted values
+SELECT * FROM temp_table ORDER BY key, value;
+
 -- clean-up functions
 DROP FUNCTION sql_test_no_1();
 DROP FUNCTION sql_test_no_2();
@@ -260,3 +310,8 @@ DROP FUNCTION plpgsql_test_4();
 DROP FUNCTION plpgsql_test_5();
 DROP FUNCTION plpgsql_test_6(int);
 DROP FUNCTION plpgsql_test_7(text, text);
+DROP FUNCTION no_parameter_insert();
+DROP FUNCTION single_parameter_insert(int);
+DROP FUNCTION double_parameter_insert(int, int);
+
+

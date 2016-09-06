@@ -17,6 +17,7 @@
 #include "funcapi.h"
 #include "libpq-fe.h"
 #include "miscadmin.h"
+#include "plpgsql.h"
 
 #include <string.h>
 
@@ -814,6 +815,40 @@ ExtractParametersFromParamListInfo(ParamListInfo paramListInfo, Oid **parameterT
 		ParamExternData *parameterData = &paramListInfo->params[parameterIndex];
 		Oid typeOutputFunctionId = InvalidOid;
 		bool variableLengthType = false;
+
+		/*
+		 * Give hook a chance in case parameter is dynamic. This is used for
+		 * plpgsql functions.
+		 *
+		 * Note that, the expected hook function, plpgsql_param_fetch(), does
+		 * nothing if asked for a value that's not supposed to be used by given
+		 * SQL expression. This normally avoids unwanted evaluations. However,
+		 * we also pass these parameters through PQsendQueryParams() and
+		 * unevaluated parameters cause remote part to fail even though they
+		 * are not part of the SQL expression. For this reason, we temporarily
+		 * set unreferenced parameters in list as referenced in order to let
+		 * plpgsql_param_fetch() to evaluate them.
+		 */
+		if (!OidIsValid(parameterData->ptype) && paramListInfo->paramFetch != NULL)
+		{
+			PLpgSQL_expr *expr = (PLpgSQL_expr *) paramListInfo->parserSetupArg;
+			int parameterId = parameterIndex + 1;
+
+			/* temporarily set as referenced */
+			bool isMember = bms_is_member(parameterIndex, expr->paramnos);
+			if (!isMember)
+			{
+				expr->paramnos = bms_add_member(expr->paramnos, parameterIndex);
+			}
+
+			(*paramListInfo->paramFetch)(paramListInfo, parameterId);
+
+			/* revert back as unreferenced */
+			if (!isMember)
+			{
+				expr->paramnos = bms_del_member(expr->paramnos, parameterIndex);
+			}
+		}
 
 		/*
 		 * Use 0 for data types where the oid values can be different on
