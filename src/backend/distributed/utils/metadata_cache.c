@@ -218,6 +218,7 @@ LookupDistTableCacheEntry(Oid relationId)
 	HeapTuple distPartitionTuple = NULL;
 	char *partitionKeyString = NULL;
 	char partitionMethod = 0;
+	int colocationId = 0;
 	List *distShardTupleList = NIL;
 	int shardIntervalArrayLength = 0;
 	ShardInterval **shardIntervalArray = NULL;
@@ -267,6 +268,7 @@ LookupDistTableCacheEntry(Oid relationId)
 		oldContext = MemoryContextSwitchTo(CacheMemoryContext);
 		partitionKeyString = TextDatumGetCString(partitionKeyDatum);
 		partitionMethod = partitionForm->partmethod;
+		colocationId = partitionForm->colocationid;
 
 		MemoryContextSwitchTo(oldContext);
 
@@ -378,6 +380,7 @@ LookupDistTableCacheEntry(Oid relationId)
 		cacheEntry->isDistributedTable = true;
 		cacheEntry->partitionKeyString = partitionKeyString;
 		cacheEntry->partitionMethod = partitionMethod;
+		cacheEntry->colocationId = colocationId;
 		cacheEntry->shardIntervalArrayLength = shardIntervalArrayLength;
 		cacheEntry->sortedShardIntervalArray = sortedShardIntervalArray;
 		cacheEntry->shardIntervalCompareFunction = shardIntervalCompareFunction;
