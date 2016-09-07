@@ -1015,7 +1015,8 @@ OpenCopyTransactions(CopyStmt *copyStatement, ShardConnections *shardConnections
 
 		DeleteShardPlacementRow(failedPlacement->shardId, failedPlacement->nodeName,
 								failedPlacement->nodePort);
-		InsertShardPlacementRow(failedPlacement->shardId, FILE_INACTIVE, shardLength,
+		InsertShardPlacementRow(failedPlacement->shardId, failedPlacement->placementId,
+								FILE_INACTIVE, shardLength,
 								failedPlacement->nodeName, failedPlacement->nodePort);
 	}
 

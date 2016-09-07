@@ -20,6 +20,7 @@
 #include "catalog/pg_type.h"
 #include "distributed/citus_nodes.h"
 #include "distributed/master_metadata_utility.h"
+#include "distributed/master_protocol.h"
 #include "distributed/metadata_cache.h"
 #include "distributed/multi_join_order.h"
 #include "distributed/multi_logical_optimizer.h"
@@ -275,9 +276,9 @@ ShardPlacementList(uint64 shardId)
 
 
 /*
- * TupleToShardPlacement takes in a heap tuple from pg_dist_shard_placement, and
- * converts this tuple to an equivalent struct in memory. The function assumes
- * the caller already has locks on the tuple, and doesn't perform any locking.
+ * TupleToShardPlacement takes in a heap tuple from pg_dist_shard_placement,
+ * and converts this tuple to in-memory struct. The function assumes the
+ * caller already has locks on the tuple, and doesn't perform any locking.
  */
 ShardPlacement *
 TupleToShardPlacement(TupleDesc tupleDescriptor, HeapTuple heapTuple)
@@ -285,7 +286,8 @@ TupleToShardPlacement(TupleDesc tupleDescriptor, HeapTuple heapTuple)
 	ShardPlacement *shardPlacement = NULL;
 	bool isNull = false;
 
-	Oid tupleOid = HeapTupleGetOid(heapTuple);
+	Datum placementId = heap_getattr(heapTuple, Anum_pg_dist_shard_placement_placementid,
+									 tupleDescriptor, &isNull);
 	Datum shardId = heap_getattr(heapTuple, Anum_pg_dist_shard_placement_shardid,
 								 tupleDescriptor, &isNull);
 	Datum shardLength = heap_getattr(heapTuple, Anum_pg_dist_shard_placement_shardlength,
@@ -296,11 +298,13 @@ TupleToShardPlacement(TupleDesc tupleDescriptor, HeapTuple heapTuple)
 								  tupleDescriptor, &isNull);
 	Datum nodePort = heap_getattr(heapTuple, Anum_pg_dist_shard_placement_nodeport,
 								  tupleDescriptor, &isNull);
-
-	Assert(!HeapTupleHasNulls(heapTuple));
+	if (HeapTupleHasNulls(heapTuple))
+	{
+		ereport(ERROR, (errmsg("unexpected null in pg_dist_shard_placement_tuple")));
+	}
 
 	shardPlacement = CitusMakeNode(ShardPlacement);
-	shardPlacement->tupleOid = tupleOid;
+	shardPlacement->placementId = DatumGetInt64(placementId);
 	shardPlacement->shardId = DatumGetInt64(shardId);
 	shardPlacement->shardLength = DatumGetInt64(shardLength);
 	shardPlacement->shardState = DatumGetUInt32(shardState);
@@ -367,10 +371,12 @@ InsertShardRow(Oid relationId, uint64 shardId, char storageType,
 
 /*
  * InsertShardPlacementRow opens the shard placement system catalog, and inserts
- * a new row with the given values into that system catalog.
+ * a new row with the given values into that system catalog. If placementId is
+ * INVALID_PLACEMENT_ID, a new placement id will be assigned.
  */
 void
-InsertShardPlacementRow(uint64 shardId, char shardState, uint64 shardLength,
+InsertShardPlacementRow(uint64 shardId, uint64 placementId,
+						char shardState, uint64 shardLength,
 						char *nodeName, uint32 nodePort)
 {
 	Relation pgDistShardPlacement = NULL;
@@ -383,11 +389,14 @@ InsertShardPlacementRow(uint64 shardId, char shardState, uint64 shardLength,
 	memset(values, 0, sizeof(values));
 	memset(isNulls, false, sizeof(isNulls));
 
+	if (placementId == INVALID_PLACEMENT_ID)
+		placementId = master_get_new_placementid(NULL);
 	values[Anum_pg_dist_shard_placement_shardid - 1] = Int64GetDatum(shardId);
 	values[Anum_pg_dist_shard_placement_shardstate - 1] = CharGetDatum(shardState);
 	values[Anum_pg_dist_shard_placement_shardlength - 1] = Int64GetDatum(shardLength);
 	values[Anum_pg_dist_shard_placement_nodename - 1] = CStringGetTextDatum(nodeName);
 	values[Anum_pg_dist_shard_placement_nodeport - 1] = Int64GetDatum(nodePort);
+	values[Anum_pg_dist_shard_placement_placementid - 1] = Int64GetDatum(placementId);
 
 	/* open shard placement relation and insert new tuple */
 	pgDistShardPlacement = heap_open(DistShardPlacementRelationId(), RowExclusiveLock);
@@ -455,7 +464,7 @@ DeleteShardRow(uint64 shardId)
  * first (unique) row that corresponds to the given shardId and worker node, and
  * deletes this row.
  */
-void
+uint64
 DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort)
 {
 	Relation pgDistShardPlacement = NULL;
@@ -465,9 +474,12 @@ DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort)
 	bool indexOK = true;
 	HeapTuple heapTuple = NULL;
 	bool heapTupleFound = false;
+	TupleDesc tupleDescriptor = NULL;
+	int64 placementId = INVALID_PLACEMENT_ID;
+	bool isNull = false;
 
 	pgDistShardPlacement = heap_open(DistShardPlacementRelationId(), RowExclusiveLock);
-
+	tupleDescriptor = RelationGetDescr(pgDistShardPlacement);
 	ScanKeyInit(&scanKey[0], Anum_pg_dist_shard_placement_shardid,
 				BTEqualStrategyNumber, F_INT8EQ, Int64GetDatum(shardId));
 
@@ -478,8 +490,6 @@ DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort)
 	heapTuple = systable_getnext(scanDescriptor);
 	while (HeapTupleIsValid(heapTuple))
 	{
-		TupleDesc tupleDescriptor = RelationGetDescr(pgDistShardPlacement);
-
 		ShardPlacement *placement = TupleToShardPlacement(tupleDescriptor, heapTuple);
 		if (strncmp(placement->nodeName, workerName, WORKER_LENGTH) == 0 &&
 			placement->nodePort == workerPort)
@@ -499,11 +509,17 @@ DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort)
 							   shardId, workerName, workerPort)));
 	}
 
+	placementId = heap_getattr(heapTuple, Anum_pg_dist_shard_placement_placementid,
+							   tupleDescriptor, &isNull);
+	Assert(!isNull);
+
 	simple_heap_delete(pgDistShardPlacement, &heapTuple->t_self);
 	CommandCounterIncrement();
 
 	systable_endscan(scanDescriptor);
 	heap_close(pgDistShardPlacement, RowExclusiveLock);
+
+	return placementId;
 }
 
 
@@ -739,7 +755,8 @@ master_stage_shard_placement_row(PG_FUNCTION_ARGS)
 	EnsureTablePermissions(distributedRelationId, ACL_INSERT);
 
 	/* finally insert placement */
-	InsertShardPlacementRow(shardId, shardState, shardLength, nodeName, nodePort);
+	InsertShardPlacementRow(shardId, INVALID_PLACEMENT_ID, shardState, shardLength,
+							nodeName, nodePort);
 
 	heap_close(relation, NoLock);
 	heap_close(pgDistShard, NoLock);

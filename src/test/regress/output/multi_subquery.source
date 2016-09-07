@@ -861,7 +861,7 @@ DEBUG:  predicate pruning for shardId 270011
 DEBUG:  predicate pruning for shardId 270012
 DEBUG:  predicate pruning for shardId 270011
 DEBUG:  predicate pruning for shardId 270012
-DEBUG:  building index "pg_toast_17247_index" on table "pg_toast_17247"
+DEBUG:  building index "pg_toast_17208_index" on table "pg_toast_17208"
                                                                                                                    QUERY PLAN                                                                                                                    
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Distributed Query into pg_merge_job_270015
@@ -1043,7 +1043,7 @@ DEBUG:  predicate pruning for shardId 270015
 DEBUG:  predicate pruning for shardId 270016
 DEBUG:  predicate pruning for shardId 270011
 DEBUG:  predicate pruning for shardId 270012
-DEBUG:  building index "pg_toast_17256_index" on table "pg_toast_17256"
+DEBUG:  building index "pg_toast_17217_index" on table "pg_toast_17217"
                                                                                                 QUERY PLAN                                                                                                
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Distributed Query into pg_merge_job_270017
