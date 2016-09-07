@@ -70,10 +70,11 @@ extern ShardPlacement * TupleToShardPlacement(TupleDesc tupleDesc,
 /* Function declarations to modify shard and shard placement data */
 extern void InsertShardRow(Oid relationId, uint64 shardId, char storageType,
 						   text *shardMinValue, text *shardMaxValue);
+extern void DeleteShardRow(uint64 shardId);
 extern void InsertShardPlacementRow(uint64 shardId, uint64 placementId,
 									char shardState, uint64 shardLength,
 									char *nodeName, uint32 nodePort);
-extern void DeleteShardRow(uint64 shardId);
+extern void UpdateShardPlacementState(uint64 placementId, char shardState);
 extern uint64 DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort);
 
 /* Remaining metadata utility functions  */

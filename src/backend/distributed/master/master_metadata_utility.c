@@ -522,6 +522,57 @@ DeleteShardPlacementRow(uint64 shardId, char *workerName, uint32 workerPort)
 	return placementId;
 }
 
+/*
+ * UpdateShardPlacementState sets the shardState for the placement identified
+ * by placementId.
+ */
+void
+UpdateShardPlacementState(uint64 placementId, char shardState)
+{
+	Relation pgDistShardPlacement = NULL;
+	SysScanDesc scanDescriptor = NULL;
+	ScanKeyData scanKey[1];
+	int scanKeyCount = 1;
+	bool indexOK = true;
+	HeapTuple heapTuple = NULL;
+	TupleDesc tupleDescriptor = NULL;
+	Datum values[Natts_pg_dist_shard_placement];
+	bool isnull[Natts_pg_dist_shard_placement];
+	bool replace[Natts_pg_dist_shard_placement];
+
+	pgDistShardPlacement = heap_open(DistShardPlacementRelationId(), RowExclusiveLock);
+	tupleDescriptor = RelationGetDescr(pgDistShardPlacement);
+	ScanKeyInit(&scanKey[0], Anum_pg_dist_shard_placement_placementid,
+				BTEqualStrategyNumber, F_INT8EQ, Int64GetDatum(placementId));
+
+	scanDescriptor = systable_beginscan(pgDistShardPlacement,
+										DistShardPlacementPlacementidIndexId(), indexOK,
+										NULL, scanKeyCount, scanKey);
+
+	heapTuple = systable_getnext(scanDescriptor);
+	if (!HeapTupleIsValid(heapTuple))
+	{
+		ereport(ERROR, (errmsg("could not find valid entry for shard placement "
+							   UINT64_FORMAT,
+							   placementId)));
+	}
+
+	memset(replace, 0, sizeof(replace));
+
+	values[Anum_pg_dist_shard_placement_shardstate - 1] = CharGetDatum(shardState);
+	isnull[Anum_pg_dist_shard_placement_shardstate - 1] = false;
+	replace[Anum_pg_dist_shard_placement_shardstate - 1] = true;
+
+	heapTuple = heap_modify_tuple(heapTuple, tupleDescriptor, values, isnull, replace);
+	simple_heap_update(pgDistShardPlacement, &heapTuple->t_self, heapTuple);
+
+	CatalogUpdateIndexes(pgDistShardPlacement, heapTuple);
+	CommandCounterIncrement();
+
+	systable_endscan(scanDescriptor);
+	heap_close(pgDistShardPlacement, NoLock);
+}
+
 
 /*
  * BuildDistributionKeyFromColumnName builds a simple distribution key consisting
