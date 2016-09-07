@@ -16,12 +16,14 @@
 
 #include "postgres.h"
 #include "funcapi.h"
+#include "libpq-fe.h"
 #include "miscadmin.h"
 
 #include "access/htup_details.h"
 #include "access/xact.h"
 #include "catalog/indexing.h"
 #include "distributed/multi_client_executor.h"
+#include "distributed/multi_transaction.h"
 #include "distributed/master_metadata_utility.h"
 #include "distributed/master_protocol.h"
 #include "distributed/metadata_cache.h"
@@ -586,11 +588,8 @@ WorkerShardStats(char *nodeName, uint32 nodePort, Oid relationId, char *shardNam
 	char *partitionColumnName = NULL;
 	StringInfo partitionValueQuery = makeStringInfo();
 
-	int32 connectionId = -1;
-	bool queryOK = false;
-	void *queryResult = NULL;
-	int rowCount = 0;
-	int columnCount = 0;
+	MultiConnection *connection = NULL;
+	PGresult *result = NULL;
 	const int minValueIndex = 0;
 	const int maxValueIndex = 1;
 
@@ -604,11 +603,8 @@ WorkerShardStats(char *nodeName, uint32 nodePort, Oid relationId, char *shardNam
 	*shardMinValue = NULL;
 	*shardMaxValue = NULL;
 
-	connectionId = MultiClientConnect(nodeName, nodePort, NULL, NULL);
-	if (connectionId == INVALID_CONNECTION_ID)
-	{
-		return false;
-	}
+	connection = GetNodeConnection(NEW_CONNECTION | CACHED_CONNECTION,
+								   nodeName, nodePort);
 
 	quotedShardName = quote_literal_cstr(shardName);
 
@@ -622,18 +618,19 @@ WorkerShardStats(char *nodeName, uint32 nodePort, Oid relationId, char *shardNam
 		appendStringInfo(tableSizeQuery, SHARD_TABLE_SIZE_QUERY, quotedShardName);
 	}
 
-	queryOK = MultiClientExecute(connectionId, tableSizeQuery->data,
-								 &queryResult, &rowCount, &columnCount);
-	if (!queryOK)
+
+	result = ExecuteStatement(connection, tableSizeQuery->data);
+	if (!result)
 	{
-		MultiClientDisconnect(connectionId);
 		return false;
 	}
 
-	tableSizeString = MultiClientGetValue(queryResult, 0, 0);
+	tableSizeString = PQgetvalue(result, 0, 0);
 	if (tableSizeString == NULL)
 	{
-		MultiClientDisconnect(connectionId);
+		PQclear(result);
+		result = PQgetResult(connection->conn);
+		Assert(result == NULL);
 		return false;
 	}
 
@@ -641,20 +638,21 @@ WorkerShardStats(char *nodeName, uint32 nodePort, Oid relationId, char *shardNam
 	tableSize = strtoull(tableSizeString, &tableSizeStringEnd, 0);
 	if (errno != 0 || (*tableSizeStringEnd) != '\0')
 	{
-		MultiClientClearResult(queryResult);
-		MultiClientDisconnect(connectionId);
+		PQclear(result);
+		result = PQgetResult(connection->conn);
+		Assert(result == NULL);
 		return false;
 	}
 
 	*shardSize = tableSize;
 
-	MultiClientClearResult(queryResult);
+	PQclear(result);
+	result = PQgetResult(connection->conn);
+	Assert(result == NULL);
 
 	if (partitionType != DISTRIBUTE_BY_APPEND)
 	{
 		/* we don't need min/max for non-append distributed tables */
-		MultiClientDisconnect(connectionId);
-
 		return true;
 	}
 
@@ -665,28 +663,27 @@ WorkerShardStats(char *nodeName, uint32 nodePort, Oid relationId, char *shardNam
 	appendStringInfo(partitionValueQuery, SHARD_RANGE_QUERY,
 					 partitionColumnName, partitionColumnName, shardName);
 
-	queryOK = MultiClientExecute(connectionId, partitionValueQuery->data,
-								 &queryResult, &rowCount, &columnCount);
-	if (!queryOK)
+	result = ExecuteStatement(connection, partitionValueQuery->data);
+	if (!result)
 	{
-		MultiClientDisconnect(connectionId);
 		return false;
 	}
 
-	minValueIsNull = MultiClientValueIsNull(queryResult, 0, minValueIndex);
-	maxValueIsNull = MultiClientValueIsNull(queryResult, 0, maxValueIndex);
+	minValueIsNull = PQgetisnull(result, 0, minValueIndex);
+	maxValueIsNull = PQgetisnull(result, 0, maxValueIndex);
 
 	if (!minValueIsNull && !maxValueIsNull)
 	{
-		char *minValueResult = MultiClientGetValue(queryResult, 0, minValueIndex);
-		char *maxValueResult = MultiClientGetValue(queryResult, 0, maxValueIndex);
+		char *minValueResult = PQgetvalue(result, 0, minValueIndex);
+		char *maxValueResult = PQgetvalue(result, 0, maxValueIndex);
 
 		*shardMinValue = cstring_to_text(minValueResult);
 		*shardMaxValue = cstring_to_text(maxValueResult);
 	}
 
-	MultiClientClearResult(queryResult);
-	MultiClientDisconnect(connectionId);
+	PQclear(result);
+	result = PQgetResult(connection->conn);
+	Assert(result == NULL);
 
 	return true;
 }
