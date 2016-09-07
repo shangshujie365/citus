@@ -149,27 +149,27 @@ INSERT INTO labs VALUES (6, 'Bell Labs');
 SELECT count(*) FROM researchers WHERE lab_id = 6;
 ERROR:  cannot open new connections after the first modification command within a transaction
 ABORT;
--- COPY can't happen second,
+-- Check COPY can happen after INSERT
 BEGIN;
 INSERT INTO labs VALUES (6, 'Bell Labs');
 \copy labs from stdin delimiter ','
-ERROR:  cannot open new connections after the first modification command within a transaction
-CONTEXT:  COPY labs, line 1: "10,Weyland-Yutani"
 COMMIT;
--- though it will work if before any modifications
+-- Check COPY can happen before INSERT
 BEGIN;
 \copy labs from stdin delimiter ','
 SELECT name FROM labs WHERE id = 10;
-ERROR:  cannot open new connections after the first modification command within a transaction
+      name      
+----------------
+ Weyland-Yutani
+ Weyland-Yutani
+(2 rows)
+
 INSERT INTO labs VALUES (6, 'Bell Labs');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 COMMIT;
--- but a double-copy isn't allowed (the first will persist)
+-- Two COPYs are also ok
 BEGIN;
 \copy labs from stdin delimiter ','
 \copy labs from stdin delimiter ','
-ERROR:  cannot open new connections after the first modification command within a transaction
-CONTEXT:  COPY labs, line 1: "12,fsociety"
 COMMIT;
 SELECT name FROM labs WHERE id = 11;
       name      
@@ -177,15 +177,14 @@ SELECT name FROM labs WHERE id = 11;
  Planet Express
 (1 row)
 
--- finally, ALTER and copy aren't compatible
+-- finally, check ALTER and copy are compatible
 BEGIN;
 ALTER TABLE labs ADD COLUMN motto2 text;
 NOTICE:  using one-phase commit for distributed DDL commands
 HINT:  You can enable two-phase commit for extra safety with: SET citus.multi_shard_commit_protocol TO '2pc'
 \copy labs from stdin delimiter ','
-ERROR:  cannot open new connections after the first modification command within a transaction
-CONTEXT:  COPY labs, line 1: "12,fsociety,lol"
 COMMIT;
+ALTER TABLE labs DROP COLUMN motto2;
 -- but the DDL should correctly roll back
 \d labs
      Table "public.labs"
@@ -195,16 +194,18 @@ COMMIT;
  name   | text   | not null
 
 SELECT * FROM labs WHERE id = 12;
- id | name 
-----+------
-(0 rows)
+ id |   name   
+----+----------
+ 12 | fsociety
+ 12 | fsociety
+(2 rows)
 
 -- and if the copy is before the ALTER...
 BEGIN;
 \copy labs from stdin delimiter ','
 ALTER TABLE labs ADD COLUMN motto3 text;
-ERROR:  cannot open new connections after the first modification command within a transaction
 COMMIT;
+ALTER TABLE labs DROP COLUMN motto3;
 -- the DDL fails, but copy persists
 \d labs
      Table "public.labs"
@@ -217,7 +218,9 @@ SELECT * FROM labs WHERE id = 12;
  id |   name   
 ----+----------
  12 | fsociety
-(1 row)
+ 12 | fsociety
+ 12 | fsociety
+(3 rows)
 
 -- now, for some special failures...
 CREATE TABLE objects (

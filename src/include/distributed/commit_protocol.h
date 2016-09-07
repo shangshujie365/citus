@@ -14,7 +14,7 @@
 
 
 #include "access/xact.h"
-#include "libpq-fe.h"
+#include "distributed/multi_transaction.h"
 #include "lib/stringinfo.h"
 #include "nodes/pg_list.h"
 
@@ -43,20 +43,13 @@ typedef enum
 typedef struct TransactionConnection
 {
 	int64 connectionId;
+	/* FIXME: get rid of transactionState, it's duplicated from PGconn */
 	TransactionState transactionState;
-	PGconn *connection;
+	MultiConnection *connection;
 } TransactionConnection;
 
 
 /* config variable managed via guc.c */
 extern int MultiShardCommitProtocol;
-
-
-/* Functions declarations for transaction and connection management */
-extern void InitializeDistributedTransaction(void);
-extern void CompleteShardPlacementTransactions(XactEvent event, void *arg);
-extern void PrepareRemoteTransactions(List *connectionList);
-extern void AbortRemoteTransactions(List *connectionList);
-extern void CommitRemoteTransactions(List *connectionList, bool stopOnFailure);
 
 #endif /* COMMIT_PROTOCOL_H */

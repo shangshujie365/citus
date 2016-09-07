@@ -25,11 +25,7 @@ typedef struct ShardConnections
 } ShardConnections;
 
 
-extern HTAB * OpenTransactionsToAllShardPlacements(List *shardIdList,
-												   char *relationOwner);
 extern HTAB * CreateShardConnectionHash(void);
-extern void OpenConnectionsToShardPlacements(uint64 shardId, HTAB *shardConnectionHash,
-											 char *nodeUser);
 extern ShardConnections * GetShardConnections(HTAB *shardConnectionHash,
 											  int64 shardId,
 											  bool *shardConnectionsFound);
