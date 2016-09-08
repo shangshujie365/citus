@@ -293,14 +293,11 @@ ReportRemoteError(PGconn *connection, PGresult *result, bool raiseError)
 		}
 	}
 
-	/*
-	 * If requested, actually raise an error. This necessitates purging the
-	 * connection so it doesn't remain in the hash in an invalid state.
-	 */
+	/* If requested, actually raise an error. */
 	if (raiseError)
 	{
 		errorLevel = ERROR;
-		PurgeConnection(connection);
+		/* FIXME */
 	}
 
 	if (sqlState == ERRCODE_CONNECTION_FAILURE)

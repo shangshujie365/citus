@@ -66,25 +66,20 @@ INSERT INTO pg_temp.:"proxy_tablename" (id) VALUES (1);
 -- test copy with bad row in middle
 \set VERBOSITY terse
 COPY pg_temp.:"proxy_tablename" FROM stdin;
-ERROR:  null value in column "data" violates not-null constraint
+ERROR:  cannot open new connections after the first modification command within a transaction
 \set VERBOSITY default
 -- verify rows were copied to distributed table
 SELECT * FROM insert_target ORDER BY id ASC;
- id |            data             
-----+-----------------------------
+ id |    data     
+----+-------------
   1 | lorem ipsum
-  2 | dolor sit amet
-  3 | consectetur adipiscing elit
-  4 | sed do eiusmod
-  5 | tempor incididunt ut
-  6 | labore et dolore
-(6 rows)
+(1 row)
 
 -- the counter should match the number of rows stored
 SELECT currval('rows_inserted');
  currval 
 ---------
-       6
+       2
 (1 row)
 
 SET client_min_messages TO DEFAULT;
