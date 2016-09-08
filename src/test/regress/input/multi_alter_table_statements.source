@@ -173,12 +173,14 @@ COMMIT;
 SELECT indexname, tablename FROM pg_indexes WHERE tablename = 'lineitem_alter';
 DROP INDEX temp_index_2;
 
--- but that multiple ddl statements in a block results in ROLLBACK
+-- verify that multiple ddl statements in a block work
 BEGIN;
 CREATE INDEX temp_index_2 ON lineitem_alter(l_orderkey);
 ALTER TABLE lineitem_alter ADD COLUMN first integer;
 COMMIT;
 SELECT indexname, tablename FROM pg_indexes WHERE tablename = 'lineitem_alter';
+DROP INDEX temp_index_2;
+ALTER TABLE lineitem_alter DROP COLUMN first;
 
 -- and distributed SELECTs cannot appear after ALTER
 BEGIN;

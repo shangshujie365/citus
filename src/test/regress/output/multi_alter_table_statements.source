@@ -263,6 +263,60 @@ ALTER TABLE IF EXISTS lineitem_alter ALTER COLUMN int_column2 SET DATA TYPE INTE
 ALTER TABLE lineitem_alter DROP COLUMN non_existent_column;
 WARNING:  column "non_existent_column" of relation "lineitem_alter_220000" does not exist
 CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220000" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220010" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220010" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220004" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220004" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220005" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220005" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220011" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220011" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220001" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220001" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220006" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220006" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220012" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220012" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220002" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220002" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220007" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220007" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220013" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220013" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220003" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220003" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220008" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220008" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220014" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "non_existent_column" of relation "lineitem_alter_220014" does not exist
+CONTEXT:  while executing command on localhost:57637
 ERROR:  could not execute DDL command on worker node shards
 ALTER TABLE lineitem_alter DROP COLUMN IF EXISTS non_existent_column;
 NOTICE:  column "non_existent_column" of relation "lineitem_alter" does not exist, skipping
@@ -363,14 +417,176 @@ DETAIL:  Only ADD|DROP COLUMN, SET|DROP NOT NULL, SET|DROP DEFAULT and TYPE subc
 ALTER TABLE lineitem_alter ADD COLUMN new_column non_existent_type;
 WARNING:  type "non_existent_type" does not exist
 CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57638
+WARNING:  type "non_existent_type" does not exist
+CONTEXT:  while executing command on localhost:57637
 ERROR:  could not execute DDL command on worker node shards
 ALTER TABLE lineitem_alter ALTER COLUMN null_column SET NOT NULL;
 WARNING:  column "null_column" contains null values
 CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57638
+WARNING:  column "null_column" contains null values
+CONTEXT:  while executing command on localhost:57637
 ERROR:  could not execute DDL command on worker node shards
 ALTER TABLE lineitem_alter ALTER COLUMN l_partkey SET DEFAULT 'a';
 WARNING:  invalid input syntax for integer: "a"
 CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57638
+WARNING:  invalid input syntax for integer: "a"
+CONTEXT:  while executing command on localhost:57637
 ERROR:  could not execute DDL command on worker node shards
 -- Verify that we error out on statements involving RENAME
 ALTER TABLE lineitem_alter RENAME TO lineitem_renamed;
@@ -436,17 +652,19 @@ SELECT indexname, tablename FROM pg_indexes WHERE tablename = 'lineitem_alter';
 (1 row)
 
 DROP INDEX temp_index_2;
--- but that multiple ddl statements in a block results in ROLLBACK
+-- verify that multiple ddl statements in a block work
 BEGIN;
 CREATE INDEX temp_index_2 ON lineitem_alter(l_orderkey);
 ALTER TABLE lineitem_alter ADD COLUMN first integer;
-ERROR:  distributed DDL commands must not appear within transaction blocks containing other modifications
 COMMIT;
 SELECT indexname, tablename FROM pg_indexes WHERE tablename = 'lineitem_alter';
- indexname | tablename 
------------+-----------
-(0 rows)
+  indexname   |   tablename    
+--------------+----------------
+ temp_index_2 | lineitem_alter
+(1 row)
 
+DROP INDEX temp_index_2;
+ALTER TABLE lineitem_alter DROP COLUMN first;
 -- and distributed SELECTs cannot appear after ALTER
 BEGIN;
 CREATE INDEX temp_index_2 ON lineitem_alter(l_orderkey);
@@ -505,6 +723,9 @@ CREATE UNIQUE INDEX temp_unique_index_1 ON test_ab(a);
 WARNING:  could not create unique index "temp_unique_index_1_220021"
 DETAIL:  Key (a)=(2) is duplicated.
 CONTEXT:  while executing command on localhost:57638
+WARNING:  could not create unique index "temp_unique_index_1_220021"
+DETAIL:  Key (a)=(2) is duplicated.
+CONTEXT:  while executing command on localhost:57637
 ERROR:  could not execute DDL command on worker node shards
 SELECT shardid FROM pg_dist_shard_placement NATURAL JOIN pg_dist_shard 
 WHERE logicalrelid='test_ab'::regclass AND shardstate=3;
@@ -550,7 +771,8 @@ ORDER BY attnum;
  null_column                   | integer
  ........pg.dropped.22........ | -
  ........pg.dropped.23........ | -
-(29 rows)
+ ........pg.dropped.24........ | -
+(30 rows)
 
 \c - - - :master_port
 -- verify that we don't intercept DDL commands if propagation is turned off

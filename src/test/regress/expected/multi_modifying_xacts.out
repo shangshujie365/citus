@@ -155,13 +155,13 @@ ABORT;
 BEGIN;
 INSERT INTO labs VALUES (6, 'Bell Labs');
 ALTER TABLE labs ADD COLUMN motto text;
-ERROR:  distributed DDL commands must not appear within transaction blocks containing other modifications
+NOTICE:  using one-phase commit for distributed DDL commands
+HINT:  You can enable two-phase commit for extra safety with: SET citus.multi_shard_commit_protocol TO '2pc'
+ERROR:  cannot open new connections after the first modification command within a transaction
 COMMIT;
 -- whether it occurs first or second
 BEGIN;
 ALTER TABLE labs ADD COLUMN motto text;
-NOTICE:  using one-phase commit for distributed DDL commands
-HINT:  You can enable two-phase commit for extra safety with: SET citus.multi_shard_commit_protocol TO '2pc'
 INSERT INTO labs VALUES (6, 'Bell Labs');
 ERROR:  distributed data modifications must not appear in transaction blocks which contain distributed DDL commands
 COMMIT;
@@ -233,7 +233,7 @@ SELECT * FROM labs WHERE id = 12;
 BEGIN;
 \copy labs from stdin delimiter ','
 ALTER TABLE labs ADD COLUMN motto text;
-ERROR:  distributed DDL commands must not appear within transaction blocks containing other modifications
+ERROR:  cannot open new connections after the first modification command within a transaction
 COMMIT;
 -- the DDL fails, but copy persists
 \d labs
