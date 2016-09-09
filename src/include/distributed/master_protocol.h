@@ -95,6 +95,9 @@ extern void CheckDistributedTable(Oid relationId);
 extern void CreateShardPlacements(Oid relationId, int64 shardId, List *ddlEventList,
 								  char *newPlacementOwner, List *workerNodeList,
 								  int workerStartIndex, int replicationFactor);
+
+extern bool WorkerCreateShard(Oid relationId, char *nodeName, uint32 nodePort,
+							  uint64 shardId, char *newShardOwner, List *ddlCommandList);
 extern uint64 UpdateShardStatistics(int64 shardId);
 
 /* Function declarations for generating metadata for shard creation */

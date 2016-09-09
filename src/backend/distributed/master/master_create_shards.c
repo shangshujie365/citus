@@ -55,6 +55,8 @@ static text * IntegerToText(int32 value);
 
 /* declarations for dynamic loading */
 PG_FUNCTION_INFO_V1(master_create_worker_shards);
+PG_FUNCTION_INFO_V1(master_create_colocated_table);
+
 
 
 /*
@@ -220,6 +222,97 @@ master_create_worker_shards(PG_FUNCTION_ARGS)
 
 	PG_RETURN_VOID();
 }
+
+
+Datum master_create_colocated_table(PG_FUNCTION_ARGS)
+{
+	text *sourceTableNameText = PG_GETARG_TEXT_P(0);
+	text *destinationTableNameText = PG_GETARG_TEXT_P(1);
+
+	Oid sourceTableId = ResolveRelationId(sourceTableNameText);
+	Oid destinationTableId = ResolveRelationId(destinationTableNameText);
+
+	char *relationOwner = NULL;
+	List *existingShardList = NIL;
+
+	List *sourceShardList = NIL;
+	ListCell *sourceShardCell = NULL;
+
+	/* make sure tables are hash partitioned */
+	CheckHashPartitionedTable(sourceTableId);
+	CheckHashPartitionedTable(destinationTableId);
+
+
+	/*
+	 * In contrast to append/range partitioned tables it makes more sense to
+	 * require ownership privileges - shards for hash-partitioned tables are
+	 * only created once, not continually during ingest as for the other
+	 * partitioning types.
+	 *
+	 * TODO: do we need this?
+	 */
+	EnsureTableOwner(sourceTableId);
+
+	/* we plan to add shards: get an exclusive metadata lock */
+	LockRelationDistributionMetadata(destinationTableId, ExclusiveLock);
+
+	relationOwner = TableOwner(destinationTableId);
+
+	/* validate that shards haven't already been created for this table */
+	existingShardList = LoadShardList(destinationTableId);
+	if (existingShardList != NIL)
+	{
+		ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+						errmsg("table \"%s\" has already had shards created for it",
+								text_to_cstring(destinationTableNameText))));
+	}
+
+	sourceShardList = LoadShardIntervalList(sourceTableId);
+	foreach(sourceShardCell, sourceShardList)
+	{
+		ShardInterval *sourceShardInterval = (ShardInterval *) lfirst(sourceShardCell);
+		uint64 sourceShardId = sourceShardInterval->shardId;
+
+		List *sourceShardPlacementList = ShardPlacementList(sourceShardId);
+		ListCell *sourceShardPlacementCell = NULL;
+		Datum shardIdDatum = master_get_new_shardid(NULL);
+		int64 newShardId = DatumGetInt64(shardIdDatum);
+
+		foreach (sourceShardPlacementCell, sourceShardPlacementList)
+		{
+
+			ShardPlacement *sourcePlacement =  (ShardPlacement *) lfirst(sourceShardPlacementCell);
+			bool created = WorkerCreateShard(destinationTableId, sourcePlacement->nodeName,
+							  sourcePlacement->nodePort, newShardId, relationOwner , GetTableDDLEvents(sourceTableId));
+
+			if (created)
+			{
+				const RelayFileState shardState = FILE_FINALIZED;
+				const uint64 shardSize = 0;
+
+				InsertShardPlacementRow(newShardId, shardState, shardSize, sourcePlacement->nodeName,
+										sourcePlacement->nodePort);
+			}
+			else
+			{
+				/* TODO: find better code */
+				ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+								errmsg("table \"%s\" could not be colocated with %s",
+										text_to_cstring(destinationTableNameText),
+										text_to_cstring(sourceTableNameText))));
+			}
+		}
+
+		/* TODO: update SHARD_STORAGE_TABLE */
+		InsertShardRow(destinationTableId, newShardId, SHARD_STORAGE_TABLE,
+				IntegerToText(DatumGetInt32(sourceShardInterval->minValue)),
+				IntegerToText(DatumGetInt32(sourceShardInterval->maxValue)));
+
+	}
+
+	PG_RETURN_VOID();
+}
+
 
 
 /*
